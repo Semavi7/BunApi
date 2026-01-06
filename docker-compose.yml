@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: bun_todo_app
+    build: .
+    # 1. ENV BİLGİLERİNİ ÇEKME
+    # ".env" dosyasındaki her şeyi içeri aktarır
+    env_file:
+      - .env
+    # Environment override (Üzerine yazma)
+    environment:
+      # Docker içinde "localhost" çalışmaz, servis adı olan "db" kullanılmalı.
+      # .env dosyasındaki bilgileri birleştirip Docker için özel URL oluşturuyoruz:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:${DB_PORT}/${DB_NAME}?schema=public
+    ports:
+      - "${SERVER_PORT}:3000"
+    depends_on:
+      db:
+        condition: service_healthy # Veritabanı "Ben hazırım" diyene kadar bekle
+    
+    # 2. PRISMA SCRIPTLERİNİ ÇALIŞTIRMA SIRASI
+    # Önce db push yap (tabloları kur), başarılı olursa uygulamayı başlat.
+    command: /bin/sh -c "bunx prisma db push && bun run start"
+
+  db:
+    container_name: bun_todo_db
+    image: postgres:15-alpine
+    # Veritabanı bilgilerini de .env dosyasından alıyoruz
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    
+    # SAĞLIK KONTROLÜ (Healthcheck)
+    # Postgres'in gerçekten bağlantı kabul etmeye hazır olup olmadığını kontrol eder.
+    # Bu olmadan "app" servisi erken başlayıp "bağlantı hatası" verebilir.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
