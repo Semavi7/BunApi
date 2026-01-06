@@ -1,8 +1,3 @@
-(BigInt.prototype as any).toJSON = function () {
-  const int = Number.parseInt(this.toString());
-  return int ?? this.toString();
-};
-
 import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { Config } from "./config/config";
@@ -14,6 +9,13 @@ import { TodoService } from "./services/todo_service";
 import { AuthHandler } from "./handlers/auth_handler";
 import { TodoHandler } from "./handlers/todo_handler";
 import { setupRoutes } from "./routes/routes";
+import swagger from "@elysiajs/swagger";
+
+(BigInt.prototype as any).toJSON = function () {
+  const int = Number.parseInt(this.toString());
+  return int ?? this.toString();
+};
+
 
 // 1. Konfigürasyon
 const config = Config.load();
@@ -45,6 +47,27 @@ app.use(
     allowedHeaders: ["Origin", "Content-Type", "Accept"],
   })
 );
+
+app.use(swagger({
+    path: '/documentation', // Arayüz burada çalışacak
+    documentation: {
+      info: {
+        title: 'Bun Todo API',
+        version: '1.0.0',
+        description: 'ElysiaJS ve Prisma ile geliştirilmiş Todo API'
+      },
+      // Güvenlik şeması (Token ile giriş yapmak için)
+      components: {
+        securitySchemes: {
+          bearerAuth: {
+            type: 'http',
+            scheme: 'bearer',
+            bearerFormat: 'JWT'
+          }
+        }
+      }
+    }
+  }))
 
 // 5. Rotaları Tanımla
 setupRoutes(app, todoHandler, authHandler);
